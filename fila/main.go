@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 )
 
 type atracao struct {
@@ -27,7 +28,10 @@ func main() {
 	queueHandler := &QueueHandler{
 		db: queueMap,
 	}
-	mux.HandleFunc("/increment", queueHandler.HandleIncrement)
+	go decrementAllQueuesWorker(queueMap)
+	mux.HandleFunc("POST /increment", queueHandler.HandleIncrement)
+
+	http.ListenAndServe(":8081", mux)
 }
 
 type QueueHandler struct {
@@ -43,7 +47,6 @@ func (h *QueueHandler) HandleIncrement(w http.ResponseWriter, r *http.Request) {
 
 	h.db[attractionId]++
 	w.WriteHeader(http.StatusOK)
-
 }
 
 func initAtraction(atracoes []atracao) map[string]int {
@@ -52,6 +55,17 @@ func initAtraction(atracoes []atracao) map[string]int {
 		queueMap[atracao.Id] = 0
 	}
 	return queueMap
+}
+
+func decrementAllQueuesWorker(queueMap map[string]int) {
+	for {
+		for id, count := range queueMap {
+			if count > 0 {
+				queueMap[id] = count - 1
+			}
+		}
+		time.Sleep(15 * time.Second)
+	}
 }
 
 func getAttractions() ([]atracao, error) {
