@@ -15,14 +15,16 @@ const (
 	Passport        IngressoType = "passport"
 )
 
-type ingresso struct {
-	ID     string
-	UserId string
-	Type   IngressoType
+type Ingresso struct {
+	ID                string
+	UserId            string
+	Type              IngressoType
+	RemainingAccesses sql.NullInt64
+	ValidUntil        sql.NullString
 }
 
 func main() {
-	db, err := sql.Open("sqlite", "usuarios")
+	db, err := sql.Open("sqlite3", "ingressos.db")
 	if err != nil {
 		panic(err)
 	}
@@ -32,10 +34,10 @@ func main() {
 	createTable := `
 	CREATE TABLE IF NOT EXISTS ingressos (
 		id TEXT PRIMARY KEY,
-		user_id TEXT NOT NULL,
+		user_id TEXT NOT NULL UNIQUE,
 		type TEXT NOT NULL,
 		remaining_accesses INTEGER,
-		valid_until TEXT,
+		valid_until DATE,
 		created_at TEXT NOT NULL
 	);
 	`
@@ -47,45 +49,96 @@ func main() {
 	handler := &IngressoHandler{db: db}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /ingresso/{userId}", handler.CheckIfUserHasTicket)
+	mux.HandleFunc("GET /ingresso/{userId}", handler.GetUserTicket)
+	mux.HandleFunc("POST /ingresso/validate/{userId}", handler.ValidateTicket)
+
+	fmt.Println("Ingressos service running on :8080")
+	http.ListenAndServe(":8080", mux)
 }
 
 type IngressoHandler struct {
 	db *sql.DB
 }
 
-func (u *IngressoHandler) CheckIfUserHasTicket(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query()
-	userq := url.Get("user")
-	if userq == "" {
-		fmt.Println("user query cant be empty")
-		w.WriteHeader(http.StatusBadRequest)
+func (h *IngressoHandler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
+	userId := r.PathValue("userId")
+	if userId == "" {
+		http.Error(w, "userId query parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		http.Error(w, "failed to start transaction", http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback()
+
+	query := `
+		SELECT id, user_id, type, remaining_accesses, valid_until
+		FROM ingressos
+		WHERE user_id = ? AND (valid_until IS NULL OR valid_until >= date('now'))
+	`
+	row := tx.QueryRow(query, userId)
+
+	var ingresso Ingresso
+	err = row.Scan(&ingresso.ID, &ingresso.UserId, &ingresso.Type, &ingresso.RemainingAccesses, &ingresso.ValidUntil)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "no valid ticket found for user", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to query ticket", http.StatusInternalServerError)
+		return
+	}
+
+	if ingresso.Type == Predetermined {
+		if !ingresso.RemainingAccesses.Valid || ingresso.RemainingAccesses.Int64 <= 0 {
+			http.Error(w, "no remaining accesses for this ticket", http.StatusBadRequest)
+			return
+		}
+		_, err := tx.Exec("UPDATE ingressos SET remaining_accesses = remaining_accesses - 1 WHERE id = ?", ingresso.ID)
+		if err != nil {
+			http.Error(w, "failed to decrement remaining accesses", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		http.Error(w, "failed to commit transaction", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "ticket validated successfully for user %s", userId)
+}
+
+func (h *IngressoHandler) GetUserTicket(w http.ResponseWriter, r *http.Request) {
+	userId := r.PathValue("userId")
+	if userId == "" {
+		http.Error(w, "userId path parameter is required", http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	resp, err := u.db.Query("SELECT id, user_id, type FROM ingressos WHERE user_id = ?;", userq)
+	row := h.db.QueryRow("SELECT id, user_id, type, remaining_accesses, valid_until FROM ingressos WHERE user_id = ?;", userId)
+
+	var ingr Ingresso
+	err := row.Scan(&ingr.ID, &ingr.UserId, &ingr.Type, &ingr.RemainingAccesses, &ingr.ValidUntil)
 	if err != nil {
-		fmt.Printf("failed to get ingresso: %v", err)
-	}
-	defer resp.Close()
-
-	ingressos := []ingresso{}
-	for resp.Next() {
-		var ingr ingresso
-		err := resp.Scan(&ingr.ID, &ingr.UserId, &ingr.Type)
-		if err != nil {
-			fmt.Printf("error scanning ingresso: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("error scanning ingresso"))
+		if err == sql.ErrNoRows {
+			http.Error(w, "not found", http.StatusNotFound)
 			return
-
 		}
-		ingressos = append(ingressos, ingr)
+		fmt.Printf("error scanning ingresso: %v\n", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
 	}
-	jsonRes, err := json.Marshal(ingressos)
+
+	jsonRes, err := json.Marshal(ingr)
 	if err != nil {
 		fmt.Println("error marshling to json")
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
