@@ -43,6 +43,5 @@ espera
 atracoes
  - tem tempo medio de duracao, nome, id, capacidade
  - GET que retorna todas as atracoes
- - GET que consome da fila o numero de pessoas na fila daquela atracao
 usuario
   - criar novo user

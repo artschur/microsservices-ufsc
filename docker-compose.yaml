@@ -1,0 +1,42 @@
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ingressos
+      - atracoes
+      - usuarios
+      - fila
+      - espera
+
+  ingressos:
+    build: ./ingressos
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./ingressos/ingressos.db:/app/ingressos.db
+
+  atracoes:
+    build: ./atracoes
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./atracoes/atracoes.db:/app/atracoes.db
+
+  usuarios:
+    build: ./usuarios
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./usuarios/usuarios.db:/app/usuarios.db
+
+  fila:
+    build: ./fila
+    ports:
+      - "8083:8083"
+
+  espera:
+    build: ./espera
+    ports:
+      - "8084:8084"

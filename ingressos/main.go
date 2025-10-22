@@ -4,7 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type IngressoType string
@@ -16,11 +21,17 @@ const (
 )
 
 type Ingresso struct {
-	ID                string
-	UserId            string
-	Type              IngressoType
-	RemainingAccesses sql.NullInt64
-	ValidUntil        sql.NullString
+	ID                string         `json:"id"`
+	UserId            string         `json:"user_id"`
+	Type              IngressoType   `json:"type"`
+	RemainingAccesses sql.NullInt64  `json:"remaining_accesses,omitempty"`
+	ValidUntil        sql.NullString `json:"valid_until,omitempty"`
+	CreatedAt         string         `json:"created_at"`
+}
+
+type SellTicketRequest struct {
+	UserID string       `json:"user_id"`
+	Type   IngressoType `json:"type"`
 }
 
 func main() {
@@ -50,7 +61,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ingresso/{userId}", handler.GetUserTicket)
-	mux.HandleFunc("POST /ingresso/validate/{userId}", handler.ValidateTicket)
+	mux.HandleFunc("POST /ingresso/validate", handler.ValidateTicket)
+	mux.HandleFunc("POST /ingresso/sell", handler.SellTicket)
 
 	fmt.Println("Ingressos service running on :8080")
 	http.ListenAndServe(":8080", mux)
@@ -60,8 +72,74 @@ type IngressoHandler struct {
 	db *sql.DB
 }
 
+func (h *IngressoHandler) SellTicket(w http.ResponseWriter, r *http.Request) {
+	var req SellTicketRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID == "" || req.Type == "" {
+		http.Error(w, "user_id and type are required", http.StatusBadRequest)
+		return
+	}
+
+	newIngresso := Ingresso{
+		ID:        uuid.NewString(),
+		UserId:    req.UserID,
+		Type:      req.Type,
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}
+
+	switch req.Type {
+	case Predetermined:
+		newIngresso.RemainingAccesses = sql.NullInt64{Int64: 5, Valid: true}
+		// No expiration for predetermined tickets
+		newIngresso.ValidUntil = sql.NullString{Valid: false}
+	case UnlimitedDayUse:
+		// Expires at the end of the day
+		newIngresso.ValidUntil = sql.NullString{
+			String: time.Now().Format("2006-01-02"),
+			Valid:  true,
+		}
+	case Passport:
+		// Passport could have a longer validity, e.g., 1 year
+		newIngresso.ValidUntil = sql.NullString{
+			String: time.Now().AddDate(1, 0, 0).Format("2006-01-02"),
+			Valid:  true,
+		}
+	default:
+		http.Error(w, "invalid ticket type", http.StatusBadRequest)
+		return
+	}
+
+	query := `
+		INSERT INTO ingressos (id, user_id, type, remaining_accesses, valid_until, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	_, err := h.db.Exec(
+		query,
+		newIngresso.ID,
+		newIngresso.UserId,
+		newIngresso.Type,
+		newIngresso.RemainingAccesses,
+		newIngresso.ValidUntil,
+		newIngresso.CreatedAt,
+	)
+
+	if err != nil {
+		log.Printf("error inserting ingresso: %v", err)
+		http.Error(w, "failed to create ticket", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newIngresso)
+}
+
 func (h *IngressoHandler) ValidateTicket(w http.ResponseWriter, r *http.Request) {
-	userId := r.PathValue("userId")
+	userId := r.URL.Query().Get("userId")
 	if userId == "" {
 		http.Error(w, "userId query parameter is required", http.StatusBadRequest)
 		return
@@ -121,10 +199,10 @@ func (h *IngressoHandler) GetUserTicket(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	row := h.db.QueryRow("SELECT id, user_id, type, remaining_accesses, valid_until FROM ingressos WHERE user_id = ?;", userId)
+	row := h.db.QueryRow("SELECT id, user_id, type, remaining_accesses, valid_until, created_at FROM ingressos WHERE user_id = ?;", userId)
 
 	var ingr Ingresso
-	err := row.Scan(&ingr.ID, &ingr.UserId, &ingr.Type, &ingr.RemainingAccesses, &ingr.ValidUntil)
+	err := row.Scan(&ingr.ID, &ingr.UserId, &ingr.Type, &ingr.RemainingAccesses, &ingr.ValidUntil, &ingr.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "not found", http.StatusNotFound)
