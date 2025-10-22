@@ -57,15 +57,19 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err = u.db.Exec("INSERT INTO users (id, name, email) VALUES (?, ?, ?) RETURNING id;", newUser.ID, newUser.name, newUser.email)
+	res, err := u.db.Exec("INSERT INTO users (id, name, email) VALUES (?, ?, ?) RETURNING id;", newUser.ID, newUser.name, newUser.email)
 	if err != nil {
 		fmt.Printf("error inserting user into db: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
 	w.WriteHeader(http.StatusCreated)
-	w.
+	jsonRes, err := json.Marshal(res)
+	if err != nil {
+		fmt.Println("error marshling to json")
+		return
+	}
+	w.Write(jsonRes)
 }
 
 func (u *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +82,8 @@ func (u *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := u.db.Query("SELECT id, name, email FROM users WHERE id = ?;", userId)
 	if err != nil {
-		fmt.Printf("failed to get users: %v", err)
+		fmt.Printf("failed to get user: %v", err)
+		http.Error(w, "failed to get user", http.StatusInternalServerError)
 	}
 	defer resp.Close()
 
@@ -87,7 +92,7 @@ func (u *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		err := resp.Scan(&user.ID, &user.name, &user.email)
 		if err != nil {
 			fmt.Printf("error scanning user: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "error scanning user", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -95,6 +100,7 @@ func (u *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	jsonRes, err := json.Marshal(user)
 	if err != nil {
 		fmt.Println("error marshling to json")
+		http.Error(w, "error marshling to json", http.StatusInternalServerError)
 		return
 	}
 
