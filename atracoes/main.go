@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type Atracao struct {
@@ -18,7 +18,7 @@ type Atracao struct {
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", "atracoes.db")
+	db, err := sql.Open("sqlite", "atracoes.db")
 	if err != nil {
 		panic(err)
 	}

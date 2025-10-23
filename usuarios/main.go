@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	_ "modernc.org/sqlite"
 )
 
 type user struct {

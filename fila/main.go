@@ -98,7 +98,7 @@ func decrementAllQueuesWorker(queueMap map[string]atracao) {
 }
 
 func getAttractions() ([]atracao, error) {
-	resp, err := http.Get("http://localhost:8080/atracoes")
+	resp, err := http.Get("http://gateway:8000/atracoes")
 	if err != nil {
 		return nil, err
 	}

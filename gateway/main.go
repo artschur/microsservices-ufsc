@@ -30,11 +30,11 @@ func NewService(targetURL string) *Service {
 func main() {
 	// Service registry
 	services := map[string]*Service{
-		"ingresso": NewService("http://localhost:8080"),
-		"atracoes": NewService("http://localhost:8081"),
-		"usuarios": NewService("http://localhost:8082"), // Assumed port
-		"fila":     NewService("http://localhost:8083"), // Assumed port
-		"espera":   NewService("http://localhost:8084"), // Assumed port
+		"ingresso": NewService("http://ingressos:8080"),
+		"atracoes": NewService("http://atracoes:8081"),
+		"usuarios": NewService("http://usuarios:8082"), // Assumed port
+		"fila":     NewService("http://fila:8083"),     // Assumed port
+		"espera":   NewService("http://espera:8084"),   // Assumed port
 	}
 
 	// Main handler to route requests

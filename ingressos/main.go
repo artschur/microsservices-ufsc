@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 type IngressoType string
@@ -35,7 +35,7 @@ type SellTicketRequest struct {
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", "ingressos.db")
+	db, err := sql.Open("sqlite", "ingressos.db")
 	if err != nil {
 		panic(err)
 	}

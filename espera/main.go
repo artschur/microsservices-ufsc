@@ -45,7 +45,7 @@ func (h *WaitingTimeHandler) GetWaitingTimeForAttraction(w http.ResponseWriter, 
 }
 
 func (h *WaitingTimeHandler) calculateWaitingTime() {
-	resp, err := http.Get("http://localhost:8081/fila")
+	resp, err := http.Get("http://gateway:8000/fila")
 	if err != nil {
 		panic(err)
 	}
