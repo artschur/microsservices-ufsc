@@ -4,32 +4,43 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	_ "modernc.org/sqlite"
 )
 
-type user struct {
-	ID       string
-	name     string
-	email    string
-	telefone string
+// User struct with exported fields and JSON tags
+type User struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Telefone string `json:"telefone"`
 }
 
 func main() {
+	// Use the "sqlite" driver and connect to the database file
 	db, err := sql.Open("sqlite", "./usuarios.db")
 	if err != nil {
 		panic(err)
 	}
 	if err = db.Ping(); err != nil {
-		fmt.Printf("failed to connect to db: %v", err)
-	}
-	_, err = db.Exec("CREATE IF NOT EXISTS usuarios ;")
-	if err != nil {
-		fmt.Println("Failed to create usuarios database")
+		log.Fatalf("failed to connect to db: %v", err)
 	}
 
-	userHandler := UserHandler{
+	// Corrected and complete CREATE TABLE statement
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS usuarios (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		email TEXT NOT NULL UNIQUE,
+		telefone TEXT NOT NULL
+	);`
+	if _, err := db.Exec(createTableSQL); err != nil {
+		log.Fatalf("Failed to create usuarios table: %v", err)
+	}
+
+	userHandler := &UserHandler{
 		db: db,
 	}
 
@@ -37,6 +48,11 @@ func main() {
 	mux.HandleFunc("GET /user", userHandler.GetUser)
 	mux.HandleFunc("POST /user", userHandler.CreateUser)
 
+	// Start the HTTP server
+	fmt.Println("Usuarios service running on :8080")
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
 }
 
 type UserHandler struct {
@@ -44,70 +60,61 @@ type UserHandler struct {
 }
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var newUser user
+	var newUser User
 	err := json.NewDecoder(r.Body).Decode(&newUser)
 	if err != nil {
-		fmt.Printf("error decoding user: %v", err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "Error decoding user", http.StatusBadRequest)
 		return
 	}
 
+	if newUser.ID == "" || newUser.Name == "" || newUser.Email == "" || newUser.Telefone == "" {
+		http.Error(w, "id, name, email and telefone are required fields", http.StatusBadRequest)
+		return
+	}
+
+	// Correct INSERT statement for the "usuarios" table
+	insertSQL := "INSERT INTO usuarios (id, name, email, telefone) VALUES (?, ?, ?, ?)"
+	_, err = u.db.Exec(insertSQL, newUser.ID, newUser.Name, newUser.Email, newUser.Telefone)
+	if err != nil {
+		http.Error(w, "Error inserting user into db", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the created user object as JSON
 	w.Header().Set("Content-Type", "application/json")
-
-	if newUser.name == "" || newUser.email == "" || newUser.telefone == "" {
-		http.Error(w, "name, email and telefone are required fields", http.StatusBadRequest)
-		return
-	}
-
-	res, err := u.db.Exec("INSERT INTO users (id, name, email) VALUES (?, ?, ?) RETURNING id;", newUser.ID, newUser.name, newUser.email)
-	if err != nil {
-		fmt.Printf("error inserting user into db: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	w.WriteHeader(http.StatusCreated)
-	jsonRes, err := json.Marshal(res)
-	if err != nil {
-		fmt.Println("error marshling to json")
-		return
+	if err := json.NewEncoder(w).Encode(newUser); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
-	w.Write(jsonRes)
 }
 
 func (u *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	url := r.URL.Query()
-	userId := url.Get("id")
+	userId := r.URL.Query().Get("id")
 	if userId == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "User ID is required", http.StatusBadRequest)
 		return
 	}
 
-	resp, err := u.db.Query("SELECT id, name, email FROM users WHERE id = ?;", userId)
-	if err != nil {
-		fmt.Printf("failed to get user: %v", err)
-		http.Error(w, "failed to get user", http.StatusInternalServerError)
-	}
-	defer resp.Close()
+	// Correct SELECT statement for the "usuarios" table
+	querySQL := "SELECT id, name, email, telefone FROM usuarios WHERE id = ?;"
+	row := u.db.QueryRow(querySQL, userId)
 
-	var user user
-	for resp.Next() {
-		err := resp.Scan(&user.ID, &user.name, &user.email)
-		if err != nil {
-			fmt.Printf("error scanning user: %v", err)
-			http.Error(w, "error scanning user", http.StatusInternalServerError)
+	var user User
+	// Scan all fields from the row
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Telefone)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
-	}
-
-	jsonRes, err := json.Marshal(user)
-	if err != nil {
-		fmt.Println("error marshling to json")
-		http.Error(w, "error marshling to json", http.StatusInternalServerError)
+		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return
 	}
 
+	// Return the found user as JSON
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(jsonRes)
-
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }

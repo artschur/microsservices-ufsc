@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -19,7 +21,18 @@ func main() {
 	handler := &WaitingTimeHandler{
 		db: waitingTimeMap,
 	}
-	handler.calculateWaitingTime()
+
+	t := time.NewTicker(30 * time.Second)
+	go func() {
+		for {
+			<-t.C
+			err := handler.calculateWaitingTime()
+			if err != nil {
+				log.Println("error calculating waiting time:", err)
+				continue
+			}
+		}
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /espera/{attractionId}", handler.GetWaitingTimeForAttraction)
@@ -44,20 +57,19 @@ func (h *WaitingTimeHandler) GetWaitingTimeForAttraction(w http.ResponseWriter, 
 	json.NewEncoder(w).Encode(map[string]int{"waiting_time": waitingTime})
 }
 
-func (h *WaitingTimeHandler) calculateWaitingTime() {
+func (h *WaitingTimeHandler) calculateWaitingTime() error {
 	resp, err := http.Get("http://gateway:8000/fila")
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to fetch attraction queues: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var attractionQueues map[string]atracao
 	if err := json.NewDecoder(resp.Body).Decode(&attractionQueues); err != nil {
-		panic(err)
+		return fmt.Errorf("failed to decode attraction queues: %w", err)
 	}
 	for _, attraction := range attractionQueues {
 		h.db[attraction.Id] = attraction.CurrentQueue * 15
 	}
-
-	time.Sleep(30 * time.Second)
+	return nil
 }
