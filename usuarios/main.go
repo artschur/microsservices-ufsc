@@ -10,7 +10,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// User struct with exported fields and JSON tags
 type User struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
@@ -19,7 +18,6 @@ type User struct {
 }
 
 func main() {
-	// Use the "sqlite" driver and connect to the database file
 	db, err := sql.Open("sqlite", "./usuarios.db")
 	if err != nil {
 		panic(err)
@@ -28,7 +26,6 @@ func main() {
 		log.Fatalf("failed to connect to db: %v", err)
 	}
 
-	// Corrected and complete CREATE TABLE statement
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS usuarios (
 		id TEXT PRIMARY KEY,
@@ -45,12 +42,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("GET /user", userHandler.GetUser)
 	mux.HandleFunc("POST /user", userHandler.CreateUser)
 
-	// Start the HTTP server
-	fmt.Println("Usuarios service running on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	fmt.Println("Usuarios service running on :8082")
+	if err := http.ListenAndServe(":8082", mux); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }

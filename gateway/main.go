@@ -32,10 +32,16 @@ func main() {
 	services := map[string]*Service{
 		"ingresso": NewService("http://ingressos:8080"),
 		"atracoes": NewService("http://atracoes:8081"),
-		"usuarios": NewService("http://usuarios:8082"), // Assumed port
-		"fila":     NewService("http://fila:8083"),     // Assumed port
-		"espera":   NewService("http://espera:8084"),   // Assumed port
+		"usuarios": NewService("http://usuarios:8082"),
+		"fila":     NewService("http://fila:8083"),
+		"espera":   NewService("http://espera:8084"),
 	}
+
+	// Health endpoint
+	http.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 
 	// Main handler to route requests
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +58,6 @@ func main() {
 
 		if targetService != nil {
 			log.Printf("Forwarding request for %s to %s", path, targetService.URL)
-			// The original request path is preserved by default
 			targetService.Proxy.ServeHTTP(w, r)
 		} else {
 			log.Printf("No service found for path: %s", path)

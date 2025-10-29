@@ -60,6 +60,10 @@ func main() {
 	handler := &IngressoHandler{db: db}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("GET /ingresso/{userId}", handler.GetUserTicket)
 	mux.HandleFunc("POST /ingresso/validate", handler.ValidateTicket)
 	mux.HandleFunc("POST /ingresso/sell", handler.SellTicket)

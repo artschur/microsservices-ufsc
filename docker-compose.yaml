@@ -3,12 +3,23 @@ services:
     build: ./gateway
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
     depends_on:
-      - ingressos
-      - atracoes
-      - usuarios
-      - fila
-      - espera
+      ingressos:
+        condition: service_healthy
+      atracoes:
+        condition: service_healthy
+      usuarios:
+        condition: service_healthy
+      fila:
+        condition: service_healthy
+      espera:
+        condition: service_healthy
 
   ingressos:
     build: ./ingressos
@@ -16,6 +27,12 @@ services:
       - "8080:8080"
     volumes:
       - ./ingressos/ingressos.db:/app/ingressos.db
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
 
   atracoes:
     build: ./atracoes
@@ -23,6 +40,12 @@ services:
       - "8081:8081"
     volumes:
       - ./atracoes/atracoes.db:/app/atracoes.db
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
 
   usuarios:
     build: ./usuarios
@@ -30,13 +53,37 @@ services:
       - "8082:8082"
     volumes:
       - ./usuarios/usuarios.db:/app/usuarios.db
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
 
   fila:
     build: ./fila
     ports:
       - "8083:8083"
+    depends_on:
+      atracoes:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8083/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
 
   espera:
     build: ./espera
     ports:
       - "8084:8084"
+    depends_on:
+      fila:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8084/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 5s

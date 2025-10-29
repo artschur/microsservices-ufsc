@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -15,25 +17,45 @@ type atracao struct {
 }
 
 func main() {
-	atracoes, err := getAttractions()
-	if err != nil {
-		panic(err)
-	}
-	for _, atracao := range atracoes {
-		println("Atracao:", atracao.Id, "Capacidade:", atracao.Capacidade)
-	}
-	queueMap := initAtraction(atracoes)
+	// Start with an empty map and load attractions in the background with retries
+	queueMap := make(map[string]atracao)
 
 	mux := http.NewServeMux()
 	queueHandler := &QueueHandler{
 		db: queueMap,
 	}
-	go decrementAllQueuesWorker(queueMap)
+
+	// Load attractions with retry and then start the worker
+	go func() {
+		for {
+			atracoes, err := getAttractions()
+			if err != nil {
+				log.Printf("waiting for atracoes service: %v", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			for _, a := range atracoes {
+				queueMap[a.Id] = atracao{
+					Id:           a.Id,
+					Nome:         a.Nome,
+					Capacidade:   a.Capacidade,
+					CurrentQueue: 0,
+				}
+			}
+			go decrementAllQueuesWorker(queueMap)
+			return
+		}
+	}()
+
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("POST /fila/increment", queueHandler.HandleIncrement)
 	mux.HandleFunc("GET /fila", queueHandler.GetAllQueues)
 
-	println("Fila service running on :8081")
-	http.ListenAndServe(":8081", mux)
+	println("Fila service running on :8083")
+	http.ListenAndServe(":8083", mux)
 }
 
 type QueueHandler struct {
@@ -65,20 +87,9 @@ func (h *QueueHandler) HandleIncrement(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *QueueHandler) GetAllQueues(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(h.db)
 	w.WriteHeader(http.StatusOK)
-}
-func initAtraction(atracoes []atracao) map[string]atracao {
-	var queueMap = make(map[string]atracao, len(atracoes))
-	for _, attr := range atracoes {
-		queueMap[attr.Id] = atracao{
-			Id:           attr.Id,
-			Nome:         attr.Nome,
-			Capacidade:   attr.Capacidade,
-			CurrentQueue: 0,
-		}
-	}
-	return queueMap
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(h.db)
 }
 
 func decrementAllQueuesWorker(queueMap map[string]atracao) {
@@ -98,11 +109,16 @@ func decrementAllQueuesWorker(queueMap map[string]atracao) {
 }
 
 func getAttractions() ([]atracao, error) {
-	resp, err := http.Get("http://gateway:8000/atracoes")
+	// Call atracoes service directly instead of via gateway
+	resp, err := http.Get("http://atracoes:8081/atracoes")
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("atracoes returned status %d", resp.StatusCode)
+	}
 
 	var atracoes []atracao
 	err = json.NewDecoder(resp.Body).Decode(&atracoes)

@@ -35,9 +35,13 @@ func main() {
 	}()
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
 	mux.HandleFunc("GET /espera/{attractionId}", handler.GetWaitingTimeForAttraction)
 
-	http.ListenAndServe(":8082", mux)
+	http.ListenAndServe(":8084", mux)
 }
 
 type WaitingTimeHandler struct {
@@ -58,11 +62,16 @@ func (h *WaitingTimeHandler) GetWaitingTimeForAttraction(w http.ResponseWriter, 
 }
 
 func (h *WaitingTimeHandler) calculateWaitingTime() error {
-	resp, err := http.Get("http://gateway:8000/fila")
+	// Call fila service directly instead of via gateway
+	resp, err := http.Get("http://fila:8083/fila")
 	if err != nil {
 		return fmt.Errorf("failed to fetch attraction queues: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fila returned status %d", resp.StatusCode)
+	}
 
 	var attractionQueues map[string]atracao
 	if err := json.NewDecoder(resp.Body).Decode(&attractionQueues); err != nil {
