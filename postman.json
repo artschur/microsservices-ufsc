@@ -1,0 +1,347 @@
+{
+  "info": {
+    "name": "Microserviços Parque",
+    "description": "Coleção para testar todos os endpoints dos microserviços do parque.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "gateway",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8000/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8000",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ingressos",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User Ticket",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/ingresso/:userId",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "ingresso",
+                ":userId"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validate Ticket",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/ingresso/validate?userId={{userId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "ingresso",
+                "validate"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "user-123"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sell Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"user-123\",\n  \"type\": \"predeterminado\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/ingresso/sell",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "ingresso",
+                "sell"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "atracoes",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Atracoes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8081/atracoes",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "atracoes"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "usuarios",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/user",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "user"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"user-123\",\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"telefone\": \"123456789\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/user",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "user"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "fila",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get All Queues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/fila",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "fila"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Increment Queue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"attraction-123\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/fila/increment",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "fila",
+                "increment"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "espera",
+      "item": [
+        {
+          "name": "Healthcheck",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/healthz",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Waiting Time For Attraction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8084/espera/:attractionId",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8084",
+              "path": [
+                "espera",
+                ":attractionId"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

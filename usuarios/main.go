@@ -11,7 +11,11 @@ import (
 )
 
 type User struct {
-	ID       string `json:"id"`
+	ID string `json:"id"`
+	CreateUserRequest
+}
+
+type CreateUserRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Telefone string `json:"telefone"`
@@ -28,7 +32,7 @@ func main() {
 
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS usuarios (
-		id TEXT PRIMARY KEY,
+		id TEXT PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		email TEXT NOT NULL UNIQUE,
 		telefone TEXT NOT NULL
@@ -60,21 +64,21 @@ type UserHandler struct {
 }
 
 func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
-	var newUser User
+	var newUser CreateUserRequest
 	err := json.NewDecoder(r.Body).Decode(&newUser)
 	if err != nil {
 		http.Error(w, "Error decoding user", http.StatusBadRequest)
 		return
 	}
 
-	if newUser.ID == "" || newUser.Name == "" || newUser.Email == "" || newUser.Telefone == "" {
-		http.Error(w, "id, name, email and telefone are required fields", http.StatusBadRequest)
+	if newUser.Name == "" || newUser.Email == "" || newUser.Telefone == "" {
+		http.Error(w, "name, email and telefone are required fields", http.StatusBadRequest)
 		return
 	}
 
 	// Correct INSERT statement for the "usuarios" table
-	insertSQL := "INSERT INTO usuarios (id, name, email, telefone) VALUES (?, ?, ?, ?)"
-	_, err = u.db.Exec(insertSQL, newUser.ID, newUser.Name, newUser.Email, newUser.Telefone)
+	insertSQL := "INSERT INTO usuarios (name, email, telefone) VALUES (?, ?, ?, ?)"
+	_, err = u.db.Exec(insertSQL, newUser.Name, newUser.Email, newUser.Telefone)
 	if err != nil {
 		http.Error(w, "Error inserting user into db", http.StatusInternalServerError)
 		return
