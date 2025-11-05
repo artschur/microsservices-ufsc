@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 
 	_ "modernc.org/sqlite"
@@ -32,7 +33,7 @@ func main() {
 
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS usuarios (
-		id TEXT PRIMARY KEY AUTOINCREMENT,
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		email TEXT NOT NULL UNIQUE,
 		telefone TEXT NOT NULL
@@ -67,6 +68,7 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	var newUser CreateUserRequest
 	err := json.NewDecoder(r.Body).Decode(&newUser)
 	if err != nil {
+		slog.Error("Error inserting user into db", "error", err)
 		http.Error(w, "Error decoding user", http.StatusBadRequest)
 		return
 	}
@@ -77,9 +79,10 @@ func (u *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Correct INSERT statement for the "usuarios" table
-	insertSQL := "INSERT INTO usuarios (name, email, telefone) VALUES (?, ?, ?, ?)"
+	insertSQL := "INSERT INTO usuarios (name, email, telefone) VALUES (?, ?, ?)"
 	_, err = u.db.Exec(insertSQL, newUser.Name, newUser.Email, newUser.Telefone)
 	if err != nil {
+		slog.Error("Error inserting user into db", "error", err)
 		http.Error(w, "Error inserting user into db", http.StatusInternalServerError)
 		return
 	}

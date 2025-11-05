@@ -32,7 +32,7 @@ func main() {
 	services := map[string]*Service{
 		"ingresso": NewService("http://ingressos:8080"),
 		"atracoes": NewService("http://atracoes:8081"),
-		"usuarios": NewService("http://usuarios:8082"),
+		"user":     NewService("http://usuarios:8082"),
 		"fila":     NewService("http://fila:8083"),
 		"espera":   NewService("http://espera:8084"),
 	}
